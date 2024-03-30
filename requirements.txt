@@ -5,4 +5,4 @@ pwntools==4.13.0b0
 streamlit==1.32.1
 yfinance==0.2.37
 requests==2.31.0
-beautifulsoup4==4.10.0
+beautifulsoup4==4.11.1
