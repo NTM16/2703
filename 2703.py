@@ -10,7 +10,6 @@ from datetime import timedelta
 
 import requests
 from bs4 import BeautifulSoup
-import numpy as np
 
 
 #Lấy danh sách mã Việt Nam
@@ -92,6 +91,8 @@ if ticker is not None:
         quarter_bsheet = mck.quarterly_balance_sheet
         first_column_index = quarter_bsheet.columns[0]
         TTM_bsheet = quarter_bsheet[first_column_index]
+        second_column_index = quarter_bsheet.columns[1]
+        TTM_bsheet2 = quarter_bsheet[second_column_index]
         five_column_index = quarter_bsheet.columns[4]
         TTM_bsheet4 = quarter_bsheet[five_column_index]
 
@@ -189,10 +190,75 @@ if ticker is not None:
         # Calculate the total score
         total_score = total_rv_score + total_ni_score + total_opcf_score + total_fcf_score + total_roe_score + total_eps_score + total_cr_score + total_der_score + total_ar_score
 
+        #GURU1
+        cr_ratio = round((TTM_bsheet['Current Assets'] / TTM_bsheet['Current Liabilities']), 2)
+        # Lấy dữ liệu từ năm trước đến năm hiện tại
+
+        # Tính toán giá trị min-max
+        min_cr_ratio = round(min(cr_ratio_history), 2)
+        max_cr_ratio = round(max(cr_ratio_history), 2)
+
+        qr_ratio = round(((TTM_bsheet['Current Assets'] - TTM_bsheet['Inventory']) / TTM_bsheet['Current Liabilities']),
+                         2) if 'Inventory' in TTM_bsheet else TTM_bsheet['Current Assets'] / TTM_bsheet[
+            'Current Liabilities']
+        qr_ratio_history = [(bsheet.loc['Current Assets', year] - bsheet.loc['Inventory', year]) / (
+        bsheet.loc['Current Liabilities', year]) if 'Inventory' in TTM_bsheet else bsheet['Current Asưsets', year] / (
+        bsheet['Current Liabilities', year]) for year in years[::-1]]
+
+        # Tính toán giá trị min-max
+        min_qr_ratio = round(min(qr_ratio_history), 2)
+        max_qr_ratio = round(max(qr_ratio_history), 2)
+
+        car_ratio = round((TTM_bsheet['Cash And Cash Equivalents'] / TTM_bsheet['Current Liabilities']), 2)
+        car_ratio_history = [
+            bsheet.loc['Cash And Cash Equivalents', year] / (bsheet.loc['Current Liabilities', year] or 1) for year in
+            years[::-1]]
+
+        # Tính toán giá trị min-max
+        min_car_ratio = round(min(car_ratio_history), 2)
+        max_car_ratio = round(max(car_ratio_history), 2)
+
+        dso_ratio = round((TTM_bsheet['Accounts Receivable'] / TTM['Total Revenue']) * 365, 2)
+        dso_ratio_history = [
+            bsheet.loc['Accounts Receivable', year] * 365 / (income.loc['Total Revenue', year] or 1) for year in
+            years[::-1]]
+        # Tính toán giá trị min-max
+        min_dso_ratio = round(min(dso_ratio_history), 2)
+        max_dso_ratio = round(max(dso_ratio_history), 2)
+
+        ap_average_values = (TTM_bsheet4['Accounts Payable'] + TTM_bsheet['Accounts Payable']) / 2
+        dp_ratio = round((ap_average_values / TTM['Cost Of Revenue']) * 365, 2)
+        dp_ratio_history = [bsheet.loc['Accounts Payable', year] * 365 / (income.loc['Cost Of Revenue', year] or 1)
+                            for year in years[::-1]]
+        # Tính toán giá trị min-max
+        min_dp_ratio = round(min(dp_ratio_history), 2)
+        max_dp_ratio = round(max(dp_ratio_history), 2)
+
+        inv_average = (TTM_bsheet4['Inventory'] + TTM_bsheet['Inventory']) / 2 if 'Inventory' in TTM_bsheet else 0
+        dio_ratio = round((inv_average / TTM['Cost Of Revenue']) * 365, 2)
+        dio_ratio_history = [bsheet.loc['Inventory', year] * 365 / (income.loc['Cost Of Revenue', year] or 1) for
+                             year in years[::-1]]
+        # Tính toán giá trị min-max
+        min_dio_ratio = round(min(dio_ratio_history), 2)
+        max_dio_ratio = round(max(dio_ratio_history), 2)
+
+        div_ratio = mck.info['trailingAnnualDividendYield'] * 100
+        pr_ratio = mck.info['payoutRatio']
+        five_years_ratio = mck.info['fiveYearAvgDividendYield']
+        forward_ratio = mck.info['dividendYield'] * 100
+        cr_values2 = (cr_ratio - min_cr_ratio) / (max_cr_ratio - min_cr_ratio)
+        qr_values = (qr_ratio - min_qr_ratio) / (max_qr_ratio - min_qr_ratio)
+        car_values = (car_ratio - min_car_ratio) / (max_car_ratio - min_car_ratio)
+        dso_values = (dso_ratio - min_dso_ratio) / (max_dso_ratio - min_dso_ratio)
+        dp_values = (dp_ratio - min_dp_ratio) / (max_dp_ratio - min_dp_ratio)
+        dio_values = (dio_ratio - min_dio_ratio) / (max_dio_ratio - min_dio_ratio)
+        div_values = 0
+        pr_values = 0
+        five_years_values = 0
+        forward_values = 0
 
         summary, f_score, valuation, guru = st.tabs(
             ["Summary", "F-Score", "Valuation", "Guru"])
-
 
         with summary:
             st.subheader('Candlestick Chart')
@@ -533,85 +599,17 @@ if ticker is not None:
             final_intrinsic_value = intrinsic_value - debt_per_share + cash_per_share
             st.subheader(f"Final Intrinsic Value per Share: {final_intrinsic_value:.2f}")
 
+
         with guru:
+
             st.subheader('Liquidity Ratio')
-            cr_ratio = round((TTM_bsheet['Current Assets'] / TTM_bsheet['Current Liabilities']), 2)
-
-            # Lấy dữ liệu từ năm trước đến năm hiện tại
-            cr_ratio_history = [bsheet.loc['Current Assets', year] / (bsheet.loc['Current Liabilities', year] or 1) for
-                                year in years[::-1]]
-
-            # Tính toán giá trị min-max
-            min_cr_ratio = round(min(cr_ratio_history), 2)
-            max_cr_ratio = round(max(cr_ratio_history), 2)
-
-            qr_ratio = round(
-                ((TTM_bsheet['Current Assets'] - TTM_bsheet['Inventory']) / TTM_bsheet['Current Liabilities']),
-                2) if 'Inventory' in TTM_bsheet else TTM_bsheet['Current Assets'] / TTM_bsheet['Current Liabilities']
-            qr_ratio_history = [(bsheet.loc['Current Assets', year] - bsheet.loc['Inventory', year]) / (
-                bsheet.loc['Current Liabilities', year] if 'Inventory' in TTM_bsheet else bsheet[
-                                                                                              'Current Assets', year] /
-                                                                                          bsheet[
-                                                                                              'Current Liabilities', year])
-                                for year in years[::-1]]
-            # Tính toán giá trị min-max
-            min_qr_ratio = round(min(qr_ratio_history), 2)
-            max_qr_ratio = round(max(qr_ratio_history), 2)
-
-            car_ratio = round((TTM_bsheet['Cash And Cash Equivalents'] / TTM_bsheet['Current Liabilities']), 2)
-            car_ratio_history = [
-                bsheet.loc['Cash And Cash Equivalents', year] / (bsheet.loc['Current Liabilities', year] or 1) for year
-                in years[::-1]]
-            # Tính toán giá trị min-max
-            min_car_ratio = round(min(car_ratio_history), 2)
-            max_car_ratio = round(max(car_ratio_history), 2)
-
-            dso_ratio = round((TTM_bsheet['Accounts Receivable'] / TTM['Total Revenue']) * 365, 2)
-            dso_ratio_history = [
-                bsheet.loc['Accounts Receivable', year] * 365 / (income.loc['Total Revenue', year] or 1) for year in
-                years[::-1]]
-            # Tính toán giá trị min-max
-            min_dso_ratio = round(min(dso_ratio_history), 2)
-            max_dso_ratio = round(max(dso_ratio_history), 2)
-
-            ap_average_values = (TTM_bsheet4['Accounts Payable'] + TTM_bsheet['Accounts Payable']) / 2
-            dp_ratio = round((ap_average_values / TTM['Cost Of Revenue']) * 365, 2)
-            dp_ratio_history = [bsheet.loc['Accounts Payable', year] * 365 / (income.loc['Cost Of Revenue', year] or 1)
-                                for year in years[::-1]]
-            # Tính toán giá trị min-max
-            min_dp_ratio = round(min(dp_ratio_history), 2)
-            max_dp_ratio = round(max(dp_ratio_history), 2)
-
-            inv_average = (TTM_bsheet4['Inventory'] + TTM_bsheet['Inventory']) / 2 if 'Inventory' in TTM_bsheet else 0
-            dio_ratio = round((inv_average / TTM['Cost Of Revenue']) * 365, 2)
-            dio_ratio_history = [bsheet.loc['Inventory', year] * 365 / (income.loc['Cost Of Revenue', year] or 1) for
-                                 year in years[::-1]]
-            # Tính toán giá trị min-max
-            min_dio_ratio = round(min(dio_ratio_history), 2)
-            max_dio_ratio = round(max(dio_ratio_history), 2)
-
-            div_ratio = round(mck.info['trailingAnnualDividendYield'] * 100, 2)
-            pr_ratio = round(mck.info['payoutRatio'], 2)
-            five_years_ratio = round(mck.info['fiveYearAvgDividendYield'], 2)
-            forward_ratio = round(mck.info['dividendYield'] * 100, 2)
-            cr_values = (cr_ratio - min_cr_ratio) / (max_cr_ratio - min_cr_ratio)
-            qr_values = (qr_ratio - min_qr_ratio) / (max_qr_ratio - min_qr_ratio)
-            car_values = (car_ratio - min_car_ratio) / (max_car_ratio - min_car_ratio)
-            dso_values = (dso_ratio - min_dso_ratio) / (max_dso_ratio - min_dso_ratio)
-            dp_values = (dp_ratio - min_dp_ratio) / (max_dp_ratio - min_dp_ratio)
-            dio_values = (dio_ratio - min_dio_ratio) / (max_dio_ratio - min_dio_ratio)
-            div_values = 0
-            pr_values = 0
-            five_years_values = 0
-            forward_values = 0
-
             data_liquidity = pd.DataFrame(
                 {
                     "STT": [1, 2, 3, 4, 5, 6],
                     "Index": ['Current Ratio', 'Quick Ratio', 'Cash Ratio', 'Days Inventory', 'Days Sales Outstanding',
                               'Days Payable'],
                     "Current": [cr_ratio, qr_ratio, car_ratio, dio_ratio, dso_ratio, dp_ratio],
-                    "Vs History": [cr_values, qr_values, car_values, dio_values, dso_values, dp_values],
+                    "Vs History": [cr_values2, qr_values, car_values, dio_values, dso_values, dp_values],
                 }
             )
             st.data_editor(
